@@ -45,6 +45,7 @@ local function create_win()
   vim.opt.splitbelow = user_define
   local cbuf, cwin = api.nvim_get_current_buf(), api.nvim_get_current_win()
   api.nvim_set_option_value('buftype', 'nofile', { buf = cbuf })
+  api.nvim_set_option_value('filetype', 'rapid', { buf = cbuf })
   return cbuf, cwin
 end
 
