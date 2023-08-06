@@ -23,5 +23,13 @@ vim.keymap.set('n', '<leader>r', '<cmd>Rapid<CR>')
 - timeout  integer default is 10000
 - open     string  default is `<CR>`
 
+## Usage
+
+support single and pipe commands like
+
+- single `Compile Commands: gcc test.c`
+
+- pipe `Compile Commands: gcc test.c && ./a.out`
+
 
 ## License MIT

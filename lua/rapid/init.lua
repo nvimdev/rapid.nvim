@@ -128,31 +128,40 @@ local function on_confirm(input)
   if not input or #input == 0 then
     return
   end
-  local cmd = vim.split(input, '%s', { trimempty = true })
+  local cmds = vim.split(input, '&&')
   local root = root_dir()
   local now = uv.hrtime()
   local mainwin = api.nvim_get_current_win()
   local cbuf, cwin = create_win()
-  vim.system(cmd, {
-    stdin = false,
-    stdout = function(_, data)
-      update_buf(data, cbuf)
-    end,
-    stderr = function(_, data)
-      update_buf(data, cbuf)
-    end,
-    cwd = root,
-  }, function(obj)
-    local taken = ('Compile Complete in %s ms'):format((uv.hrtime() - now) / 1e6)
-    vim.schedule(function()
-      buf_set_lines(cbuf, -1, -1, false, { taken })
-      local _erow = api.nvim_buf_line_count(cbuf) - 1
-      buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
-      buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 19, -1)
-      api.nvim_set_option_value('modifiable', false, { buf = cbuf })
-      apply_map(cbuf, cwin, mainwin)
-    end)
-  end)
+  coroutine.resume(coroutine.create(function()
+    local co = coroutine.running()
+    for i, cmd in ipairs(cmds) do
+      vim.system(vim.split(cmd, '%s', { trimempty = true }), {
+        stdin = false,
+        stdout = function(_, data)
+          update_buf(data, cbuf)
+        end,
+        stderr = function(_, data)
+          update_buf(data, cbuf)
+        end,
+        cwd = root,
+      }, function(obj)
+        coroutine.resume(co)
+        if i == #cmds then
+          local taken = ('Compile Complete in %s ms'):format((uv.hrtime() - now) / 1e6)
+          vim.schedule(function()
+            buf_set_lines(cbuf, -1, -1, false, { taken })
+            local _erow = api.nvim_buf_line_count(cbuf) - 1
+            buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
+            buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 19, -1)
+            apply_map(cbuf, cwin, mainwin)
+          end)
+        end
+      end)
+      coroutine.yield()
+    end
+    api.nvim_set_option_value('modifiable', false, { buf = cbuf })
+  end))
 end
 
 function M.compile()
