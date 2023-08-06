@@ -11,7 +11,7 @@ local function root_dir()
   end
   return vim.iter(clients):find(function(client)
     return client.config.root_dir
-  end)
+  end).config.root_dir
 end
 
 _G.rapid_complete = function(arglead, _)
@@ -135,10 +135,10 @@ local function on_confirm(input)
   local cbuf, cwin = create_win()
   vim.system(cmd, {
     stdin = false,
-    stdout = function(err, data)
+    stdout = function(_, data)
       update_buf(data, cbuf)
     end,
-    stderr = function(err, data)
+    stderr = function(_, data)
       update_buf(data, cbuf)
     end,
     cwd = root,
