@@ -138,6 +138,7 @@ local function on_confirm(input)
     local co = coroutine.running()
     for i, cmd in ipairs(cmds) do
       vim.system(vim.split(cmd, '%s', { trimempty = true }), {
+        text = true,
         stdin = false,
         stdout = function(_, data)
           update_buf(data, cbuf)
@@ -149,12 +150,14 @@ local function on_confirm(input)
       }, function(obj)
         coroutine.resume(co)
         if i == #cmds then
-          local taken = ('Compile Complete in %s ms'):format((uv.hrtime() - now) / 1e6)
+          local date = util.date_fmt()
+          --TODO: better message when exit with signal?
+          local taken = ('Compile Finished at %s take %sms'):format(date, (uv.hrtime() - now) / 1e6)
           vim.schedule(function()
             buf_set_lines(cbuf, -1, -1, false, { taken })
             local _erow = api.nvim_buf_line_count(cbuf) - 1
             buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
-            buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 19, -1)
+            buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
             apply_map(cbuf, cwin, mainwin)
           end)
         end

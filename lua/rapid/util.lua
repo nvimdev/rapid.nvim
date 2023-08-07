@@ -25,4 +25,8 @@ function M.has_file(lines, start)
   return range
 end
 
+function M.date_fmt()
+  return os.date('%a %b %H:%M:%S')
+end
+
 return M
