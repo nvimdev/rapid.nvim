@@ -43,21 +43,26 @@ local function create_win()
   vim.opt.splitbelow = true
   vim.cmd.split('compile')
   vim.opt.splitbelow = user_define
-  local cbuf, cwin = api.nvim_get_current_buf(), api.nvim_get_current_win()
-  api.nvim_set_option_value('buftype', 'nofile', { buf = cbuf })
-  api.nvim_set_option_value('filetype', 'rapid', { buf = cbuf })
-  return cbuf, cwin
+  M.buf, M.win = api.nvim_get_current_buf(), api.nvim_get_current_win()
+  api.nvim_set_option_value('buftype', 'nofile', { buf = M.buf })
+  api.nvim_set_option_value('bufhidden', 'wipe', { buf = M.buf })
+  api.nvim_set_option_value('filetype', 'rapid', { buf = M.buf })
 end
 
-local function update_buf(data, cbuf)
+local function update_buf(data)
   if data then
     local lines = vim.split(data, '\n')
     vim.schedule(function()
-      local start = api.nvim_buf_line_count(cbuf)
-      if start == 1 and #api.nvim_buf_get_lines(cbuf, 0, -1, false)[1] == 0 then
+      if not M.win or not api.nvim_win_is_valid(M.win) then
+        create_win()
+      end
+      --clean buffer first there may already have a output buffer.
+      buf_set_lines(M.buf, 0, -1, false, {})
+      local start = api.nvim_buf_line_count(M.buf)
+      if start == 1 and #api.nvim_buf_get_lines(M.buf, 0, -1, false)[1] == 0 then
         start = start - 1
       end
-      buf_set_lines(cbuf, start, -1, false, lines)
+      buf_set_lines(M.buf, start, -1, false, lines)
       local range = util.has_file(lines, start)
       if vim.tbl_count(range) == 0 then
         return
@@ -66,7 +71,7 @@ local function update_buf(data, cbuf)
       for _, item in ipairs(range) do
         if item.file then
           buf_add_highlight(
-            cbuf,
+            M.buf,
             0,
             'RapidFile',
             item.file.line - 1,
@@ -76,7 +81,7 @@ local function update_buf(data, cbuf)
 
           if item.targetPos then
             buf_add_highlight(
-              cbuf,
+              M.buf,
               0,
               'RapidTargetPos',
               item.targetPos.line - 1,
@@ -90,9 +95,9 @@ local function update_buf(data, cbuf)
   end
 end
 
-local function apply_map(cbuf, cwin, mainwin)
+local function apply_map(mainwin)
   vim.keymap.set('n', M.opt.open, function()
-    local row, col = unpack(api.nvim_win_get_cursor(cwin))
+    local row, col = unpack(api.nvim_win_get_cursor(M.win))
     for _, range in ipairs(M.range) do
       if
         range.file
@@ -100,12 +105,18 @@ local function apply_map(cbuf, cwin, mainwin)
         and col >= range.file.scol - 1
         and col <= range.file.ecol
       then
-        local fname =
-          api.nvim_buf_get_text(cbuf, row - 1, range.file.scol - 1, row - 1, range.file.ecol, {})[1]
+        local fname = api.nvim_buf_get_text(
+          M.buf,
+          row - 1,
+          range.file.scol - 1,
+          row - 1,
+          range.file.ecol,
+          {}
+        )[1]
         local targetpos
         if range.targetPos then
           targetpos = api.nvim_buf_get_text(
-            cbuf,
+            M.buf,
             row - 1,
             range.targetPos.scol - 1,
             row - 1,
@@ -122,7 +133,16 @@ local function apply_map(cbuf, cwin, mainwin)
         return
       end
     end
-  end, { buffer = cbuf })
+  end, { buffer = M.buf })
+end
+
+local function clean()
+  api.nvim_create_autocmd('BufWipeout', {
+    buffer = M.buf,
+    callback = function()
+      M.buf, M.winid, M.range = nil, nil, nil
+    end,
+  })
 end
 
 local function on_confirm(input)
@@ -135,9 +155,6 @@ local function on_confirm(input)
   local cur_fname = api.nvim_buf_get_name(0)
   local now = uv.hrtime()
   local mainwin = api.nvim_get_current_win()
-  --TODO: does there need create first ? if compile no stdout or stderr
-  --it's better just print a message not create a new buffer
-  local cbuf, cwin = create_win()
   coroutine.resume(coroutine.create(function()
     local co = coroutine.running()
     for i, cmd in ipairs(cmds) do
@@ -152,10 +169,10 @@ local function on_confirm(input)
           text = true,
           stdin = false,
           stdout = function(_, data)
-            update_buf(data, cbuf)
+            update_buf(data)
           end,
           stderr = function(_, data)
-            update_buf(data, cbuf)
+            update_buf(data)
           end,
           cwd = root,
         },
@@ -169,18 +186,19 @@ local function on_confirm(input)
               (uv.hrtime() - now) / 1e6
             )
             vim.schedule(function()
-              buf_set_lines(cbuf, -1, -1, false, { taken })
-              local _erow = api.nvim_buf_line_count(cbuf) - 1
-              buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
-              buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
-              apply_map(cbuf, cwin, mainwin)
+              buf_set_lines(M.buf, -1, -1, false, { taken })
+              local _erow = api.nvim_buf_line_count(M.buf) - 1
+              buf_add_highlight(M.buf, 0, 'RapidComplete', _erow, 0, 16)
+              buf_add_highlight(M.buf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
+              apply_map(mainwin)
             end)
           end
         end
       )
       coroutine.yield()
     end
-    api.nvim_set_option_value('modifiable', false, { buf = cbuf })
+    api.nvim_set_option_value('modifiable', false, { buf = M.buf })
+    clean()
   end))
 end
 
@@ -191,7 +209,7 @@ function M.compile()
   }, on_confirm)
 end
 
-function M.setup(opt)
+local function setup(opt)
   M.opt = vim.tbl_extend('force', opt or {}, {
     timeout = 1000,
     open = '<CR>',
@@ -199,4 +217,12 @@ function M.setup(opt)
   M.range = {}
 end
 
-return M
+return setmetatable({
+  setup = setup,
+}, {
+  __index = function(_, k)
+    if k == 'compile' then
+      return M.compile
+    end
+  end,
+})
