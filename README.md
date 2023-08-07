@@ -31,9 +31,11 @@ vim.keymap.set('n', '<leader>r', '<cmd>Rapid<CR>')
 
 support single and pipe commands like
 
-- single `Compile Commands: gcc test.c`
+- single `Compile Command: gcc test.c`
 
-- pipe `Compile Commands: gcc test.c && ./a.out`
+- pipe `Compile Command: gcc test.c && ./a.out`
+
+- '%' flag for current file like `Compile Command: gcc %`
 
 
 ## License MIT
