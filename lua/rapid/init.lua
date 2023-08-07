@@ -129,39 +129,55 @@ local function on_confirm(input)
   if not input or #input == 0 then
     return
   end
+  --TODO: need support pipe also?
   local cmds = vim.split(input, '&&')
   local root = root_dir()
+  local cur_fname = api.nvim_buf_get_name(0)
   local now = uv.hrtime()
   local mainwin = api.nvim_get_current_win()
+  --TODO: does there need create first ? if compile no stdout or stderr
+  --it's better just print a message not create a new buffer
   local cbuf, cwin = create_win()
   coroutine.resume(coroutine.create(function()
     local co = coroutine.running()
     for i, cmd in ipairs(cmds) do
-      vim.system(vim.split(cmd, '%s', { trimempty = true }), {
-        text = true,
-        stdin = false,
-        stdout = function(_, data)
-          update_buf(data, cbuf)
-        end,
-        stderr = function(_, data)
-          update_buf(data, cbuf)
-        end,
-        cwd = root,
-      }, function(obj)
-        coroutine.resume(co)
-        if i == #cmds then
-          local date = util.date_fmt()
-          --TODO: better message when exit with signal?
-          local taken = ('Compile Finished at %s take %sms'):format(date, (uv.hrtime() - now) / 1e6)
-          vim.schedule(function()
-            buf_set_lines(cbuf, -1, -1, false, { taken })
-            local _erow = api.nvim_buf_line_count(cbuf) - 1
-            buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
-            buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
-            apply_map(cbuf, cwin, mainwin)
+      vim.system(
+        vim
+          .iter(vim.gsplit(cmd, '%s', { trimempty = true }))
+          :map(function(item)
+            return item == '%' and cur_fname or item
           end)
+          :totable(),
+        {
+          text = true,
+          stdin = false,
+          stdout = function(_, data)
+            update_buf(data, cbuf)
+          end,
+          stderr = function(_, data)
+            update_buf(data, cbuf)
+          end,
+          cwd = root,
+        },
+        function(obj)
+          coroutine.resume(co)
+          if i == #cmds then
+            local date = util.date_fmt()
+            --TODO: better message when exit with signal?
+            local taken = ('Compile Finished at %s take %sms'):format(
+              date,
+              (uv.hrtime() - now) / 1e6
+            )
+            vim.schedule(function()
+              buf_set_lines(cbuf, -1, -1, false, { taken })
+              local _erow = api.nvim_buf_line_count(cbuf) - 1
+              buf_add_highlight(cbuf, 0, 'RapidComplete', _erow, 0, 16)
+              buf_add_highlight(cbuf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
+              apply_map(cbuf, cwin, mainwin)
+            end)
+          end
         end
-      end)
+      )
       coroutine.yield()
     end
     api.nvim_set_option_value('modifiable', false, { buf = cbuf })
