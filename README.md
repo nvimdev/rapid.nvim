@@ -1,6 +1,6 @@
 ## Rapid.nvim
 
-async build/run on neovim and more useful
+async run (shell/build/run/make) commands on neovim.
 
 ![Untitled](https://github.com/nvimdev/rapid.nvim/assets/41671631/e3ae1afd-dad5-418c-9841-45cc9952831a)
 
@@ -37,5 +37,12 @@ support single and pipe commands like when using gcc
 
 - '%' flag for current file like `Compile Command: gcc %`
 
+also you can run shell commands or any other commands by using Rapid
+
+## Highlight Group
+
+```
+RapidFinished RapidTake RapidDate RapidFile RapidTargetPos
+```
 
 ## License MIT

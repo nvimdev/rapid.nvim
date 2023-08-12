@@ -1,7 +1,9 @@
 local uv, api, lsp = vim.uv, vim.api, vim.lsp
 local util = require('rapid.util')
 local buf_add_highlight, buf_set_lines = api.nvim_buf_add_highlight, api.nvim_buf_set_lines
+local buf_set_extmark = api.nvim_buf_set_extmark
 local M = {}
+local ns = api.nvim_create_namespace('Rapid')
 
 local function root_dir()
   local curbuf = api.nvim_get_current_buf()
@@ -180,16 +182,22 @@ local function on_confirm(input)
           coroutine.resume(co)
           if i == #cmds then
             local date = util.date_fmt()
-            --TODO: better message when exit with signal?
-            local taken = ('Compile Finished at %s took %sms'):format(
-              date,
-              (uv.hrtime() - now) / 1e6
-            )
+            --TODO: better message when have exit signal
             vim.schedule(function()
-              buf_set_lines(M.buf, -1, -1, false, { taken })
-              local _erow = api.nvim_buf_line_count(M.buf) - 1
-              buf_add_highlight(M.buf, 0, 'RapidComplete', _erow, 0, 16)
-              buf_add_highlight(M.buf, 0, 'RapidTimeTaken', _erow, 24 + #date + 1, -1)
+              buf_set_lines(M.buf, -1, -1, false, { 'Finished' })
+              local last = api.nvim_buf_line_count(M.buf)
+              buf_add_highlight(M.buf, 0, 'RapidFinished', last - 1, 0, -1)
+              buf_set_extmark(M.buf, ns, last - 1, 0, {
+                virt_text = {
+                  { 'at ' },
+                  { date, 'RapidDate' },
+                  { ' took ' },
+                  { uv.hrtime() - now / 1e6 .. 'ms', 'RapidTake' },
+                },
+                virt_text_pos = 'eol',
+                hl_mode = 'combine',
+              })
+              vim.bo[M.buf].modifiable = false
               apply_map(mainwin)
             end)
           end
@@ -204,7 +212,7 @@ end
 
 function M.compile()
   vim.ui.input({
-    prompt = 'Compile Command: ',
+    prompt = 'Command: ',
     completion = 'customlist,v:lua.rapid_complete',
   }, on_confirm)
 end
