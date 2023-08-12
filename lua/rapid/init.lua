@@ -181,7 +181,7 @@ local function on_confirm(input)
           if i == #cmds then
             local date = util.date_fmt()
             --TODO: better message when exit with signal?
-            local taken = ('Compile Finished at %s take %sms'):format(
+            local taken = ('Compile Finished at %s took %sms'):format(
               date,
               (uv.hrtime() - now) / 1e6
             )
