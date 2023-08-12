@@ -29,7 +29,7 @@ vim.keymap.set('n', '<leader>r', '<cmd>Rapid<CR>')
 
 ## Usage
 
-support single and pipe commands like
+support single and pipe commands like when using gcc
 
 - single `Compile Command: gcc test.c`
 
