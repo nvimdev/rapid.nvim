@@ -212,8 +212,11 @@ end
 
 function M.compile()
   vim.ui.input({
-    prompt = 'Command: ',
+    prompt = '> Run Command: ',
     completion = 'customlist,v:lua.rapid_complete',
+    highlight = function(input)
+      return { { 0, #input, 'String' } }
+    end,
   }, on_confirm)
 end
 
