@@ -58,8 +58,10 @@ local function update_buf(data)
       if not M.win or not api.nvim_win_is_valid(M.win) then
         create_win()
       end
-      --clean buffer first there may already have a output buffer.
-      buf_set_lines(M.buf, 0, -1, false, {})
+      if not vim.bo[M.buf].modifiable then
+        vim.bo[M.buf].modifiable = true
+        buf_set_lines(M.buf, 0, -1, false, {})
+      end
       local start = api.nvim_buf_line_count(M.buf)
       if start == 1 and #api.nvim_buf_get_lines(M.buf, 0, -1, false)[1] == 0 then
         start = start - 1
